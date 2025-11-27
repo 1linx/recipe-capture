@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Recipe Extraction Tool</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+    h1 {
+      color: #333;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      min-height: 100px;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    #response {
+      margin-top: 30px;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+      white-space: pre-wrap;
+      display: none;
+    }
+    #loading {
+      display: none;
+      margin-top: 15px;
+      color: #666;
+    }
+    .error {
+      color: #d32f2f;
+      background-color: #ffebee;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 15px;
+    }
+    #loginSection {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    #mainSection {
+      display: none;
+    }
+    #loginForm input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    .logout-btn {
+      background-color: #f44336;
+      float: right;
+      padding: 8px 16px;
+      font-size: 14px;
+    }
+    .logout-btn:hover {
+      background-color: #da190b;
+    }
+  </style>
+</head>
+<body>
+  <div id="loginSection">
+    <h1>Recipe Extraction Tool</h1>
+    <p>Please enter the password to access the tool:</p>
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required autofocus>
+      </div>
+      <button type="submit">Login</button>
+      <div id="loginError" class="error" style="display: none;"></div>
+    </form>
+  </div>
+
+  <div id="mainSection">
+    <button class="logout-btn" id="logoutBtn">Logout</button>
+    <h1>Recipe Extraction Tool</h1>
+    <p>Enter a recipe URL or text to extract and convert to UK measurements.</p>
+
+    <form id="queryForm">
+    <div class="form-group">
+      <label for="query">Recipe URL or Text:</label>
+      <textarea id="query" name="query" placeholder="Enter a recipe URL or paste recipe text here..." required></textarea>
+    </div>
+    <button type="submit" id="submitBtn">Extract Recipe</button>
+    <div id="loading">Processing your request...</div>
+  </form>
+
+    <div id="response"></div>
+  </div>
+
+  <script>
+    // Check authentication status on page load
+    async function checkAuth() {
+      try {
+        const response = await fetch('/auth-status');
+        const data = await response.json();
+
+        if (data.authenticated) {
+          document.getElementById('loginSection').style.display = 'none';
+          document.getElementById('mainSection').style.display = 'block';
+        } else {
+          document.getElementById('loginSection').style.display = 'block';
+          document.getElementById('mainSection').style.display = 'none';
+        }
+      } catch (error) {
+        console.error('Error checking auth status:', error);
+      }
+    }
+
+    // Login form handling
+    const loginForm = document.getElementById('loginForm');
+    const loginError = document.getElementById('loginError');
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const password = document.getElementById('password').value;
+      loginError.style.display = 'none';
+
+      try {
+        const response = await fetch('/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ password: password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          document.getElementById('loginSection').style.display = 'none';
+          document.getElementById('mainSection').style.display = 'block';
+          document.getElementById('password').value = '';
+        } else {
+          loginError.textContent = data.error || 'Invalid password';
+          loginError.style.display = 'block';
+        }
+      } catch (error) {
+        loginError.textContent = 'Error: ' + error.message;
+        loginError.style.display = 'block';
+      }
+    });
+
+    // Logout button handling
+    const logoutBtn = document.getElementById('logoutBtn');
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        await fetch('/logout', { method: 'POST' });
+        document.getElementById('loginSection').style.display = 'block';
+        document.getElementById('mainSection').style.display = 'none';
+        document.getElementById('query').value = '';
+        document.getElementById('response').style.display = 'none';
+      } catch (error) {
+        console.error('Error logging out:', error);
+      }
+    });
+
+    // Query form handling
+    const form = document.getElementById('queryForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const loading = document.getElementById('loading');
+    const responseDiv = document.getElementById('response');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const query = document.getElementById('query').value;
+
+      // Show loading state
+      submitBtn.disabled = true;
+      loading.style.display = 'block';
+      responseDiv.style.display = 'none';
+      responseDiv.className = '';
+
+      try {
+        const response = await fetch('/query-ai', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ query: query })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          responseDiv.textContent = data.response;
+          responseDiv.style.display = 'block';
+        } else if (response.status === 401) {
+          // Session expired, show login
+          responseDiv.className = 'error';
+          responseDiv.textContent = 'Session expired. Please log in again.';
+          responseDiv.style.display = 'block';
+          setTimeout(() => {
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('mainSection').style.display = 'none';
+          }, 2000);
+        } else {
+          responseDiv.className = 'error';
+          responseDiv.textContent = 'Error: ' + (data.error || 'Something went wrong');
+          responseDiv.style.display = 'block';
+        }
+      } catch (error) {
+        responseDiv.className = 'error';
+        responseDiv.textContent = 'Error: ' + error.message;
+        responseDiv.style.display = 'block';
+      } finally {
+        // Hide loading state
+        submitBtn.disabled = false;
+        loading.style.display = 'none';
+      }
+    });
+
+    // Check auth status on page load
+    checkAuth();
+  </script>
+</body>
+</html>
