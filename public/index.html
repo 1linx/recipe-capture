@@ -1,309 +1,361 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Recipe Extraction Tool</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recipe Collection - UK Measurements</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 800px;
-      margin: 50px auto;
-      padding: 20px;
-    }
-    h1 {
-      color: #333;
-    }
-    .form-group {
-      margin-bottom: 15px;
-    }
-    label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: bold;
-    }
-    textarea {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 14px;
-      min-height: 100px;
-    }
-    button {
-      background-color: #4CAF50;
-      color: white;
-      padding: 12px 24px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 16px;
-    }
-    button:hover {
-      background-color: #45a049;
-    }
-    button:disabled {
-      background-color: #cccccc;
-      cursor: not-allowed;
-    }
-    #response {
-      margin-top: 30px;
-      padding: 20px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      background-color: #f9f9f9;
-      white-space: pre-wrap;
-      display: none;
-    }
-    #response-container {
-      margin-top: 30px;
-      display: none;
-    }
-    #text-response {
-      padding: 20px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      background-color: #f0f8ff;
-      margin-bottom: 20px;
-      white-space: pre-wrap;
-    }
-    #json-response-container {
-      padding: 20px;
-      border: 1px solid #4CAF50;
-      border-radius: 4px;
-      background-color: #f9f9f9;
-    }
-    #json-response-container pre {
+    * {
       margin: 0;
-      background-color: #2d2d2d;
-      color: #f8f8f2;
-      padding: 15px;
-      border-radius: 4px;
-      overflow-x: auto;
+      padding: 0;
+      box-sizing: border-box;
     }
-    #json-response-container code {
-      font-family: 'Courier New', monospace;
-      font-size: 14px;
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f8f9fa;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
-    #loading {
-      display: none;
-      margin-top: 15px;
-      color: #666;
+
+    header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 2rem 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    .error {
-      color: #d32f2f;
-      background-color: #ffebee;
-      padding: 10px;
-      border-radius: 4px;
-      margin-top: 15px;
-    }
-    #loginSection {
-      max-width: 400px;
+
+    .container {
+      max-width: 1200px;
       margin: 0 auto;
+      padding: 0 2rem;
     }
-    #mainSection {
-      display: none;
+
+    main {
+      flex: 1;
     }
-    #loginForm input[type="password"] {
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-size: 1.1rem;
+      opacity: 0.9;
+    }
+
+    .header-actions {
+      margin-top: 1.5rem;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      background-color: white;
+      color: #667eea;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 600;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .search-bar {
+      margin: 2rem 0;
+      position: relative;
+    }
+
+    .search-bar input {
       width: 100%;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 14px;
-      margin-bottom: 10px;
+      padding: 1rem 1.5rem;
+      font-size: 1rem;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      transition: border-color 0.3s;
     }
-    .logout-btn {
-      background-color: #f44336;
-      float: right;
-      padding: 8px 16px;
-      font-size: 14px;
+
+    .search-bar input:focus {
+      outline: none;
+      border-color: #667eea;
     }
-    .logout-btn:hover {
-      background-color: #da190b;
+
+    .recipe-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2rem;
+      margin: 2rem 0;
+    }
+
+    @media (max-width: 1024px) {
+      .recipe-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .recipe-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .recipe-card {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: transform 0.3s, box-shadow 0.3s;
+      cursor: pointer;
+    }
+
+    .recipe-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+    }
+
+    .recipe-card-header {
+      padding: 1.5rem;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      min-height: 120px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .recipe-card h3 {
+      font-size: 1.4rem;
+      color: #2d3748;
+      margin-bottom: 0.5rem;
+      line-height: 1.3;
+    }
+
+    .recipe-source {
+      font-size: 0.9rem;
+      color: #718096;
+    }
+
+    .recipe-card-body {
+      padding: 1.5rem;
+    }
+
+    .recipe-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      color: #4a5568;
+    }
+
+    .meta-icon {
+      font-size: 1.2rem;
+    }
+
+    .dietary-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      background-color: #e6f3ff;
+      color: #0066cc;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 4rem 0;
+      font-size: 1.2rem;
+      color: #718096;
+    }
+
+    .error {
+      background-color: #fff5f5;
+      border: 1px solid #feb2b2;
+      color: #c53030;
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 2rem 0;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+    }
+
+    .empty-state h2 {
+      font-size: 1.8rem;
+      color: #4a5568;
+      margin-bottom: 1rem;
+    }
+
+    footer {
+      background-color: #2d3748;
+      color: white;
+      text-align: center;
+      padding: 2rem 0;
+      margin-top: 4rem;
+    }
+
+    footer a {
+      color: #667eea;
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
-  <div id="loginSection">
-    <h1>Recipe Extraction Tool</h1>
-    <p>Please enter the password to access the tool:</p>
-    <form id="loginForm">
-      <div class="form-group">
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" required autofocus>
-      </div>
-      <button type="submit">Login</button>
-      <div id="loginError" class="error" style="display: none;"></div>
-    </form>
-  </div>
-
-  <div id="mainSection">
-    <button class="logout-btn" id="logoutBtn">Logout</button>
-    <h1>Recipe Extraction Tool</h1>
-    <p>Enter a recipe URL or text to extract and convert to UK measurements.</p>
-
-    <form id="queryForm">
-    <div class="form-group">
-      <label for="query">Recipe URL or Text:</label>
-      <textarea id="query" name="query" placeholder="Enter a recipe URL or paste recipe text here..." required></textarea>
+  <header>
+    <div class="container">
+      <h1>Recipe Collection</h1>
+      <p class="subtitle">All recipes with UK measurements</p>
     </div>
-    <button type="submit" id="submitBtn">Extract Recipe</button>
-    <div id="loading">Processing your request...</div>
-  </form>
+  </header>
 
-    <div id="response-container">
-        <!-- This is for the conversational text from Gemini -->
-        <div id="text-response"></div>
-
-        <!-- This is where the formatted JSON will go -->
-        <div id="json-response-container"></div>
+  <main class="container">
+    <div class="search-bar">
+      <input
+        type="text"
+        id="searchInput"
+        placeholder="Search recipes by name, source, or ingredients..."
+        autocomplete="off"
+      >
     </div>
 
-  </div>
+    <div id="loadingState" class="loading">Loading recipes...</div>
+    <div id="errorState" class="error" style="display: none;"></div>
+    <div id="emptyState" class="empty-state" style="display: none;">
+      <h2>No recipes yet</h2>
+      <p>Start by <a href="/import" class="btn" style="margin-top: 1rem;">importing your first recipe</a></p>
+    </div>
+    <div id="recipeGrid" class="recipe-grid" style="display: none;"></div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2025 Recipe Collection</p>
+      <p style="margin-top: 0.5rem;"><a href="/import">Import New Recipe</a></p>
+    </div>
+  </footer>
 
   <script>
-    // Check authentication status on page load
-    async function checkAuth() {
+    let allRecipes = [];
+
+    async function loadRecipes() {
       try {
-        const response = await fetch('/auth-status');
+        const response = await fetch('/api/recipes');
         const data = await response.json();
 
-        if (data.authenticated) {
-          document.getElementById('loginSection').style.display = 'none';
-          document.getElementById('mainSection').style.display = 'block';
+        if (!response.ok) throw new Error(data.error || 'Failed to load recipes');
+
+        allRecipes = data.recipes || [];
+        displayRecipes(allRecipes);
+
+        document.getElementById('loadingState').style.display = 'none';
+
+        if (allRecipes.length === 0) {
+          document.getElementById('emptyState').style.display = 'block';
         } else {
-          document.getElementById('loginSection').style.display = 'block';
-          document.getElementById('mainSection').style.display = 'none';
+          document.getElementById('recipeGrid').style.display = 'grid';
         }
       } catch (error) {
-        console.error('Error checking auth status:', error);
+        console.error('Error loading recipes:', error);
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('errorState').style.display = 'block';
+        document.getElementById('errorState').textContent = 'Error loading recipes: ' + error.message;
       }
     }
 
-    // Login form handling
-    const loginForm = document.getElementById('loginForm');
-    const loginError = document.getElementById('loginError');
+    function displayRecipes(recipes) {
+      const grid = document.getElementById('recipeGrid');
+      grid.innerHTML = '';
 
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
+      recipes.forEach(recipe => {
+        const card = createRecipeCard(recipe);
+        grid.appendChild(card);
+      });
+    }
 
-      const password = document.getElementById('password').value;
-      loginError.style.display = 'none';
+    function createRecipeCard(recipe) {
+      const card = document.createElement('div');
+      card.className = 'recipe-card';
+      card.onclick = () => window.location.href = `/recipes/${recipe.id}`;
 
-      try {
-        const response = await fetch('/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ password: password })
-        });
+      const metaItems = [];
+      if (recipe.prep_time) metaItems.push(`<div class="meta-item"><span class="meta-icon">⏱️</span>${recipe.prep_time}</div>`);
+      if (recipe.cook_time) metaItems.push(`<div class="meta-item"><span class="meta-icon">🔥</span>${recipe.cook_time}</div>`);
+      if (recipe.servings) metaItems.push(`<div class="meta-item"><span class="meta-icon">🍽️</span>${recipe.servings} servings</div>`);
 
-        const data = await response.json();
+      const dietaryTags = recipe.dietary_info && Array.isArray(recipe.dietary_info)
+        ? recipe.dietary_info.map(tag => `<span class="tag">${tag}</span>`).join('')
+        : '';
 
-        if (response.ok && data.success) {
-          document.getElementById('loginSection').style.display = 'none';
-          document.getElementById('mainSection').style.display = 'block';
-          document.getElementById('password').value = '';
-        } else {
-          loginError.textContent = data.error || 'Invalid password';
-          loginError.style.display = 'block';
-        }
-      } catch (error) {
-        loginError.textContent = 'Error: ' + error.message;
-        loginError.style.display = 'block';
+      card.innerHTML = `
+        <div class="recipe-card-header">
+          <h3>${escapeHtml(recipe.name)}</h3>
+          ${recipe.source ? `<p class="recipe-source">from ${escapeHtml(recipe.source)}</p>` : ''}
+        </div>
+        <div class="recipe-card-body">
+          ${metaItems.length ? `<div class="recipe-meta">${metaItems.join('')}</div>` : ''}
+          ${dietaryTags ? `<div class="dietary-tags">${dietaryTags}</div>` : ''}
+        </div>
+      `;
+
+      return card;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      const searchTerm = e.target.value.toLowerCase();
+
+      if (!searchTerm) {
+        displayRecipes(allRecipes);
+        return;
       }
+
+      const filtered = allRecipes.filter(recipe => {
+        const name = recipe.name?.toLowerCase() || '';
+        const source = recipe.source?.toLowerCase() || '';
+        const ingredients = JSON.stringify(recipe.ingredients || []).toLowerCase();
+
+        return name.includes(searchTerm) ||
+               source.includes(searchTerm) ||
+               ingredients.includes(searchTerm);
+      });
+
+      displayRecipes(filtered);
     });
 
-    // Logout button handling
-    const logoutBtn = document.getElementById('logoutBtn');
-    logoutBtn.addEventListener('click', async () => {
-      try {
-        await fetch('/logout', { method: 'POST' });
-        document.getElementById('loginSection').style.display = 'block';
-        document.getElementById('mainSection').style.display = 'none';
-        document.getElementById('query').value = '';
-        document.getElementById('response-container').style.display = 'none';
-      } catch (error) {
-        console.error('Error logging out:', error);
-      }
-    });
-
-    // Query form handling
-    const form = document.getElementById('queryForm');
-    const submitBtn = document.getElementById('submitBtn');
-    const loading = document.getElementById('loading');
-    const responseContainer = document.getElementById('response-container');
-    const textResponseDiv = document.getElementById('text-response');
-    const jsonResponseDiv = document.getElementById('json-response-container');
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const query = document.getElementById('query').value;
-
-      // Show loading state
-      submitBtn.disabled = true;
-      loading.style.display = 'block';
-      responseContainer.style.display = 'none';
-      textResponseDiv.innerHTML = '';
-      jsonResponseDiv.innerHTML = '';
-
-      try {
-        const response = await fetch('/query-ai', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ query: query })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          // Display the text response if present
-          if (data.response) {
-            textResponseDiv.textContent = data.response;
-          }
-
-          // Display the JSON response if present
-          if (data.recipeJson) {
-            const preTag = document.createElement('pre');
-            const codeTag = document.createElement('code');
-            codeTag.textContent = JSON.stringify(data.recipeJson, null, 2);
-            preTag.appendChild(codeTag);
-            jsonResponseDiv.appendChild(preTag);
-          }
-
-          responseContainer.style.display = 'block';
-        } else if (response.status === 401) {
-          // Session expired, show login
-          textResponseDiv.className = 'error';
-          textResponseDiv.textContent = 'Session expired. Please log in again.';
-          responseContainer.style.display = 'block';
-          setTimeout(() => {
-            document.getElementById('loginSection').style.display = 'block';
-            document.getElementById('mainSection').style.display = 'none';
-          }, 2000);
-        } else {
-          textResponseDiv.className = 'error';
-          textResponseDiv.textContent = 'Error: ' + (data.error || 'Something went wrong');
-          if (data.details) {
-            textResponseDiv.textContent += '\nDetails: ' + data.details;
-          }
-          responseContainer.style.display = 'block';
-        }
-      } catch (error) {
-        textResponseDiv.className = 'error';
-        textResponseDiv.textContent = 'Error: ' + error.message;
-        responseContainer.style.display = 'block';
-      } finally {
-        // Hide loading state
-        submitBtn.disabled = false;
-        loading.style.display = 'none';
-      }
-    });
-
-    // Check auth status on page load
-    checkAuth();
+    // Load recipes on page load
+    loadRecipes();
   </script>
 </body>
 </html>

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Recipe Extraction Tool</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+    h1 {
+      color: #333;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      min-height: 100px;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    #response {
+      margin-top: 30px;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+      white-space: pre-wrap;
+      display: none;
+    }
+    #response-container {
+      margin-top: 30px;
+      display: none;
+    }
+    #text-response {
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background-color: #f0f8ff;
+      margin-bottom: 20px;
+      white-space: pre-wrap;
+    }
+    #json-response-container {
+      padding: 20px;
+      border: 1px solid #4CAF50;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+      position: relative;
+    }
+    #json-response-container h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #333;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #json-response-container pre {
+      margin: 0;
+      background-color: #2d2d2d;
+      color: #f8f8f2;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    #json-response-container code {
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+    .copy-btn {
+      background-color: #2196F3;
+      color: white;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.3s;
+    }
+    .copy-btn:hover {
+      background-color: #0b7dda;
+    }
+    .copy-btn.copied {
+      background-color: #4CAF50;
+    }
+    .save-btn {
+      background-color: #FF9800;
+      color: white;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-left: 10px;
+      transition: background-color 0.3s;
+    }
+    .save-btn:hover {
+      background-color: #F57C00;
+    }
+    .save-btn.saved {
+      background-color: #4CAF50;
+    }
+    .save-btn:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    #loading {
+      display: none;
+      margin-top: 15px;
+      color: #666;
+    }
+    .error {
+      color: #d32f2f;
+      background-color: #ffebee;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 15px;
+    }
+    #loginSection {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    #mainSection {
+      display: none;
+    }
+    #loginForm input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    .logout-btn {
+      background-color: #f44336;
+      float: right;
+      padding: 8px 16px;
+      font-size: 14px;
+    }
+    .logout-btn:hover {
+      background-color: #da190b;
+    }
+  </style>
+</head>
+<body>
+  <div id="loginSection">
+    <h1>Recipe Extraction Tool</h1>
+    <p>Please enter the password to access the tool:</p>
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required autofocus>
+      </div>
+      <button type="submit">Login</button>
+      <div id="loginError" class="error" style="display: none;"></div>
+    </form>
+  </div>
+
+  <div id="mainSection">
+    <button class="logout-btn" id="logoutBtn">Logout</button>
+    <h1>Recipe Extraction Tool</h1>
+    <p>Enter a recipe URL or text to extract and convert to UK measurements.</p>
+
+    <form id="queryForm">
+    <div class="form-group">
+      <label for="query">Recipe URL or Text:</label>
+      <textarea id="query" name="query" placeholder="Enter a recipe URL or paste recipe text here..." required></textarea>
+    </div>
+    <button type="submit" id="submitBtn">Extract Recipe</button>
+    <div id="loading">Processing your request...</div>
+  </form>
+
+    <div id="response-container">
+        <!-- This is for the conversational text from Gemini -->
+        <div id="text-response"></div>
+
+        <!-- This is where the formatted JSON will go -->
+        <div id="json-response-container"></div>
+    </div>
+
+  </div>
+
+  <script>
+    // Check authentication status on page load
+    async function checkAuth() {
+      try {
+        const response = await fetch('/auth-status');
+        const data = await response.json();
+
+        if (data.authenticated) {
+          document.getElementById('loginSection').style.display = 'none';
+          document.getElementById('mainSection').style.display = 'block';
+        } else {
+          document.getElementById('loginSection').style.display = 'block';
+          document.getElementById('mainSection').style.display = 'none';
+        }
+      } catch (error) {
+        console.error('Error checking auth status:', error);
+      }
+    }
+
+    // Login form handling
+    const loginForm = document.getElementById('loginForm');
+    const loginError = document.getElementById('loginError');
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const password = document.getElementById('password').value;
+      loginError.style.display = 'none';
+
+      try {
+        const response = await fetch('/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ password: password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          document.getElementById('loginSection').style.display = 'none';
+          document.getElementById('mainSection').style.display = 'block';
+          document.getElementById('password').value = '';
+        } else {
+          loginError.textContent = data.error || 'Invalid password';
+          loginError.style.display = 'block';
+        }
+      } catch (error) {
+        loginError.textContent = 'Error: ' + error.message;
+        loginError.style.display = 'block';
+      }
+    });
+
+    // Logout button handling
+    const logoutBtn = document.getElementById('logoutBtn');
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        await fetch('/logout', { method: 'POST' });
+        document.getElementById('loginSection').style.display = 'block';
+        document.getElementById('mainSection').style.display = 'none';
+        document.getElementById('query').value = '';
+        document.getElementById('response-container').style.display = 'none';
+      } catch (error) {
+        console.error('Error logging out:', error);
+      }
+    });
+
+    // Query form handling
+    const form = document.getElementById('queryForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const loading = document.getElementById('loading');
+    const responseContainer = document.getElementById('response-container');
+    const textResponseDiv = document.getElementById('text-response');
+    const jsonResponseDiv = document.getElementById('json-response-container');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const query = document.getElementById('query').value;
+
+      // Show loading state
+      submitBtn.disabled = true;
+      loading.style.display = 'block';
+      responseContainer.style.display = 'none';
+      textResponseDiv.innerHTML = '';
+      jsonResponseDiv.innerHTML = '';
+
+      try {
+        const response = await fetch('/query-ai', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ query: query })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Display the text response if present
+          if (data.response) {
+            textResponseDiv.textContent = data.response;
+          }
+
+          // Display the JSON response if present
+          if (data.recipeJson) {
+            // Create header with copy and save buttons
+            const headerDiv = document.createElement('h3');
+            headerDiv.innerHTML = '<span>Recipe JSON</span>';
+
+            const buttonContainer = document.createElement('div');
+
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'copy-btn';
+            copyBtn.textContent = 'Copy to Clipboard';
+            copyBtn.onclick = function() {
+              const jsonText = JSON.stringify(data.recipeJson, null, 2);
+              navigator.clipboard.writeText(jsonText).then(() => {
+                copyBtn.textContent = 'Copied!';
+                copyBtn.classList.add('copied');
+                setTimeout(() => {
+                  copyBtn.textContent = 'Copy to Clipboard';
+                  copyBtn.classList.remove('copied');
+                }, 2000);
+              }).catch(err => {
+                console.error('Failed to copy:', err);
+                copyBtn.textContent = 'Failed to copy';
+                setTimeout(() => {
+                  copyBtn.textContent = 'Copy to Clipboard';
+                }, 2000);
+              });
+            };
+
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'save-btn';
+            saveBtn.textContent = 'Save Recipe';
+            saveBtn.onclick = async function() {
+              saveBtn.disabled = true;
+              saveBtn.textContent = 'Saving...';
+
+              try {
+                const response = await fetch('/api/recipes', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(data.recipeJson)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                  saveBtn.textContent = 'Saved!';
+                  saveBtn.classList.add('saved');
+                  setTimeout(() => {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = 'Save Recipe';
+                    saveBtn.classList.remove('saved');
+                  }, 2000);
+                } else {
+                  throw new Error(result.error || 'Failed to save');
+                }
+              } catch (err) {
+                console.error('Failed to save recipe:', err);
+                saveBtn.textContent = 'Save Failed';
+                setTimeout(() => {
+                  saveBtn.disabled = false;
+                  saveBtn.textContent = 'Save Recipe';
+                }, 2000);
+                alert('Failed to save recipe: ' + err.message);
+              }
+            };
+
+            buttonContainer.appendChild(copyBtn);
+            buttonContainer.appendChild(saveBtn);
+            headerDiv.appendChild(buttonContainer);
+            jsonResponseDiv.appendChild(headerDiv);
+
+            // Create the JSON code block
+            const preTag = document.createElement('pre');
+            const codeTag = document.createElement('code');
+            codeTag.textContent = JSON.stringify(data.recipeJson, null, 2);
+            preTag.appendChild(codeTag);
+            jsonResponseDiv.appendChild(preTag);
+          }
+
+          responseContainer.style.display = 'block';
+        } else if (response.status === 401) {
+          // Session expired, show login
+          textResponseDiv.className = 'error';
+          textResponseDiv.textContent = 'Session expired. Please log in again.';
+          responseContainer.style.display = 'block';
+          setTimeout(() => {
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('mainSection').style.display = 'none';
+          }, 2000);
+        } else {
+          textResponseDiv.className = 'error';
+          textResponseDiv.textContent = 'Error: ' + (data.error || 'Something went wrong');
+          if (data.details) {
+            textResponseDiv.textContent += '\nDetails: ' + data.details;
+          }
+          responseContainer.style.display = 'block';
+        }
+      } catch (error) {
+        textResponseDiv.className = 'error';
+        textResponseDiv.textContent = 'Error: ' + error.message;
+        responseContainer.style.display = 'block';
+      } finally {
+        // Hide loading state
+        submitBtn.disabled = false;
+        loading.style.display = 'none';
+      }
+    });
+
+    // Check auth status on page load
+    checkAuth();
+  </script>
+</body>
+</html>

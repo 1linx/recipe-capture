@@ -6,9 +6,23 @@ const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch'); // Import node-fetch
 const session = require('express-session');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 const port = 3000;
+
+// Supabase Configuration
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+let supabase = null;
+
+// Only initialize Supabase if credentials are provided
+if (supabaseUrl && supabaseKey && supabaseUrl !== 'your_supabase_project_url') {
+  supabase = createClient(supabaseUrl, supabaseKey);
+  console.log('Supabase initialized successfully');
+} else {
+  console.log('Supabase not configured - recipe saving will be disabled');
+}
 
 // Middleware
 app.use(express.static('public')); // Serve static files (HTML, CSS, JS)
@@ -54,8 +68,20 @@ function requireAuth(req, res, next) {
 }
 
 // Routes
+
+// Public landing page - shows all recipes
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Public recipe detail page
+app.get('/recipes/:id', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'recipe.html'));
+});
+
+// Protected import tool
+app.get('/import', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'import.html'));
 });
 
 // Login endpoint
@@ -81,8 +107,185 @@ app.get('/auth-status', (req, res) => {
   res.json({ authenticated: !!req.session.authenticated });
 });
 
+// Recipe API Endpoints
+
+// Save a recipe to Supabase
+app.post('/api/recipes', requireAuth, async (req, res) => {
+  if (!supabase) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  try {
+    const recipeData = req.body;
+
+    // Define allowed fields in the database schema
+    const allowedFields = [
+      'name', 'source', 'source_link', 'prep_time', 'cook_time', 'total_time',
+      'rise_time', 'cooling_time', 'bake_time', 'servings', 'yield',
+      'oven_temp', 'tin_size', 'dietary_info', 'ingredients', 'method',
+      'tips', 'notes', 'storage', 'equipment', 'variations', 'make_ahead'
+    ];
+
+    // Filter recipe data to only include allowed fields
+    const cleanRecipeData = {};
+    for (const field of allowedFields) {
+      if (recipeData[field] !== undefined) {
+        cleanRecipeData[field] = recipeData[field];
+      }
+    }
+
+    // Add metadata
+    const recipeToSave = {
+      ...cleanRecipeData,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('recipes')
+      .insert([recipeToSave])
+      .select();
+
+    if (error) throw error;
+
+    res.json({ success: true, recipe: data[0] });
+  } catch (error) {
+    console.error('Error saving recipe:', error);
+    res.status(500).json({
+      error: 'Failed to save recipe',
+      details: error.message
+    });
+  }
+});
+
+// Get all recipes (PUBLIC - no auth required)
+app.get('/api/recipes', async (req, res) => {
+  if (!supabase) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ recipes: data });
+  } catch (error) {
+    console.error('Error fetching recipes:', error);
+    res.status(500).json({
+      error: 'Failed to fetch recipes',
+      details: error.message
+    });
+  }
+});
+
+// Get a single recipe by ID (PUBLIC - no auth required)
+app.get('/api/recipes/:id', async (req, res) => {
+  if (!supabase) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error) throw error;
+
+    res.json({ recipe: data });
+  } catch (error) {
+    console.error('Error fetching recipe:', error);
+    res.status(500).json({
+      error: 'Failed to fetch recipe',
+      details: error.message
+    });
+  }
+});
+
+// Update a recipe
+app.put('/api/recipes/:id', requireAuth, async (req, res) => {
+  if (!supabase) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  try {
+    const recipeData = req.body;
+    const recipeToUpdate = {
+      ...recipeData,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('recipes')
+      .update(recipeToUpdate)
+      .eq('id', req.params.id)
+      .select();
+
+    if (error) throw error;
+
+    res.json({ success: true, recipe: data[0] });
+  } catch (error) {
+    console.error('Error updating recipe:', error);
+    res.status(500).json({
+      error: 'Failed to update recipe',
+      details: error.message
+    });
+  }
+});
+
+// Delete a recipe
+app.delete('/api/recipes/:id', requireAuth, async (req, res) => {
+  if (!supabase) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  try {
+    const { error } = await supabase
+      .from('recipes')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Recipe deleted' });
+  } catch (error) {
+    console.error('Error deleting recipe:', error);
+    res.status(500).json({
+      error: 'Failed to delete recipe',
+      details: error.message
+    });
+  }
+});
+
 app.post('/query-ai', requireAuth, async (req, res) => {
   const userQuery = req.body.query;
+
+  if (!userQuery) {
+    return res.status(400).json({ error: 'Query is required' });
+  }
+
+  // Check if the input is already valid JSON
+  let trimmedQuery = userQuery.trim();
+  if (trimmedQuery.startsWith('{') || trimmedQuery.startsWith('[')) {
+    try {
+      const parsedJson = JSON.parse(trimmedQuery);
+      console.log('Detected valid JSON input - skipping AI processing');
+      // Return the JSON directly without AI processing
+      return res.json({
+        response: 'Valid recipe JSON detected. Ready to save.',
+        recipeJson: parsedJson
+      });
+    } catch (jsonError) {
+      // Not valid JSON, continue with normal processing
+      console.log('Input looks like JSON but failed to parse, proceeding with AI extraction');
+    }
+  }
+
   let contentToProcess = userQuery; // Default to user's direct query
 
   // Check if the userQuery is a URL
@@ -90,7 +293,24 @@ app.post('/query-ai', requireAuth, async (req, res) => {
   if (urlRegex.test(userQuery)) {
     console.log(`Attempting to fetch content from URL: ${userQuery}`);
     try {
-      const response = await fetch(userQuery);
+      // Use browser-like headers to avoid bot detection
+      const urlObj = new URL(userQuery);
+      const response = await fetch(userQuery, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-GB,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Referer': `${urlObj.origin}/`,
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'same-origin',
+          'Cache-Control': 'max-age=0'
+        }
+      });
       if (!response.ok) {
         throw new Error(`Failed to fetch URL: ${response.statusText} (${response.status})`);
       }
@@ -103,10 +323,6 @@ app.post('/query-ai', requireAuth, async (req, res) => {
         details: fetchError.message
       });
     }
-  }
-
-  if (!userQuery) {
-    return res.status(400).json({ error: 'Query is required' });
   }
 
   try {

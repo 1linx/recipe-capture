@@ -15,7 +15,6 @@ I've extracted the recipe and converted all measurements to UK units (grams, mil
 
 ```json
 {
-  "id": 1,
   "name": "Recipe Name Here",
   "source": "Website Name",
   ...
@@ -29,7 +28,6 @@ Each recipe MUST follow this exact structure:
 
 ```json
 {
-  "id": [number],
   "name": "[Recipe Name]",
   "source": "[Source Name - e.g., 'A Couple Cooks']",
   "source_link": "[Full URL]",
@@ -154,7 +152,6 @@ Use British English terminology:
 2. **Temperature format:** Always show both scales: "180°C (350°F)"
 
 3. **Field requirements:**
-   - `id`: Always use 1 (the user will assign proper IDs)
    - `name`: Recipe title
    - `source`: Website/author name
    - `source_link`: Full URL (if available)
@@ -192,7 +189,6 @@ I've extracted the Chocolate Chip Cookies recipe from Sally's Baking Addiction a
 
 ```json
 {
-  "id": 1,
   "name": "Classic Chocolate Chip Cookies",
   "source": "Sally's Baking Addiction",
   "source_link": "https://example.com/chocolate-chip-cookies",

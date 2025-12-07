@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recipe | Recipe Collection</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f8f9fa;
+    }
+
+    header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 1.5rem 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    .back-link {
+      display: inline-block;
+      color: white;
+      text-decoration: none;
+      margin-bottom: 1rem;
+      opacity: 0.9;
+    }
+
+    .back-link:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .recipe-source {
+      font-size: 1.1rem;
+      opacity: 0.9;
+    }
+
+    .recipe-source a {
+      color: white;
+      text-decoration: underline;
+    }
+
+    main {
+      background: white;
+      margin: 2rem auto;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .recipe-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      padding: 1.5rem 0;
+      border-bottom: 2px solid #e0e0e0;
+      margin-bottom: 2rem;
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .meta-label {
+      font-size: 0.85rem;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.25rem;
+    }
+
+    .meta-value {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #2d3748;
+    }
+
+    .dietary-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 1.5rem 0;
+    }
+
+    .tag {
+      padding: 0.5rem 1rem;
+      background-color: #e6f3ff;
+      color: #0066cc;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    section {
+      margin: 2.5rem 0;
+    }
+
+    h2 {
+      font-size: 1.8rem;
+      color: #2d3748;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 3px solid #667eea;
+    }
+
+    h3 {
+      font-size: 1.3rem;
+      color: #4a5568;
+      margin: 1.5rem 0 0.75rem;
+    }
+
+    .ingredients-list {
+      list-style: none;
+      margin: 1rem 0;
+    }
+
+    .ingredients-list li {
+      padding: 0.75rem;
+      border-left: 3px solid #667eea;
+      margin-bottom: 0.5rem;
+      background-color: #f7fafc;
+    }
+
+    .ingredient-item {
+      font-weight: 600;
+      color: #2d3748;
+    }
+
+    .ingredient-amount {
+      color: #667eea;
+      margin-right: 0.5rem;
+    }
+
+    .ingredient-notes {
+      font-size: 0.9rem;
+      color: #718096;
+      font-weight: normal;
+      margin-left: 0.5rem;
+    }
+
+    .method-list {
+      counter-reset: step-counter;
+      list-style: none;
+    }
+
+    .method-list li {
+      counter-increment: step-counter;
+      padding: 1rem 1rem 1rem 3.5rem;
+      margin-bottom: 1rem;
+      background-color: #f7fafc;
+      border-radius: 8px;
+      position: relative;
+    }
+
+    .method-list li::before {
+      content: counter(step-counter);
+      position: absolute;
+      left: 1rem;
+      top: 1rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+
+    .tips-list, .notes-list, .equipment-list, .variations-list {
+      list-style: none;
+      margin: 1rem 0;
+    }
+
+    .tips-list li, .notes-list li, .equipment-list li, .variations-list li {
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+      background-color: #fffbeb;
+      border-left: 3px solid #f59e0b;
+      border-radius: 4px;
+    }
+
+    .equipment-list li {
+      background-color: #f0fdf4;
+      border-left-color: #10b981;
+    }
+
+    .storage-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    .storage-item {
+      padding: 1rem;
+      background-color: #f7fafc;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+
+    .storage-title {
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: 0.5rem;
+      text-transform: capitalize;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 4rem 0;
+      font-size: 1.2rem;
+      color: #718096;
+    }
+
+    .error {
+      background-color: #fff5f5;
+      border: 1px solid #feb2b2;
+      color: #c53030;
+      padding: 2rem;
+      border-radius: 8px;
+      margin: 2rem 0;
+      text-align: center;
+    }
+
+    footer {
+      background-color: #2d3748;
+      color: white;
+      text-align: center;
+      padding: 2rem 0;
+      margin-top: 4rem;
+    }
+
+    @media print {
+      header, footer, .back-link {
+        display: none;
+      }
+
+      main {
+        box-shadow: none;
+        margin: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="/" class="back-link">← Back to all recipes</a>
+      <h1 id="recipeName">Loading...</h1>
+      <p id="recipeSource" class="recipe-source"></p>
+    </div>
+  </header>
+
+  <div class="container">
+    <div id="loadingState" class="loading">Loading recipe...</div>
+    <div id="errorState" class="error" style="display: none;"></div>
+
+    <main id="recipeContent" style="display: none;">
+      <div id="recipeMeta" class="recipe-meta"></div>
+      <div id="dietaryTags" class="dietary-tags"></div>
+
+      <section id="ingredientsSection" style="display: none;">
+        <h2>Ingredients</h2>
+        <div id="ingredientsContent"></div>
+      </section>
+
+      <section id="methodSection" style="display: none;">
+        <h2>Method</h2>
+        <div id="methodContent"></div>
+      </section>
+
+      <section id="tipsSection" style="display: none;">
+        <h2>Tips</h2>
+        <ul id="tipsList" class="tips-list"></ul>
+      </section>
+
+      <section id="equipmentSection" style="display: none;">
+        <h2>Equipment</h2>
+        <ul id="equipmentList" class="equipment-list"></ul>
+      </section>
+
+      <section id="notesSection" style="display: none;">
+        <h2>Notes</h2>
+        <ul id="notesList" class="notes-list"></ul>
+      </section>
+
+      <section id="variationsSection" style="display: none;">
+        <h2>Variations</h2>
+        <ul id="variationsList" class="variations-list"></ul>
+      </section>
+
+      <section id="storageSection" style="display: none;">
+        <h2>Storage</h2>
+        <div id="storageGrid" class="storage-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2025 Recipe Collection</p>
+    </div>
+  </footer>
+
+  <script>
+    async function loadRecipe() {
+      const recipeId = window.location.pathname.split('/').pop();
+
+      try {
+        const response = await fetch(`/api/recipes/${recipeId}`);
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.error || 'Failed to load recipe');
+
+        displayRecipe(data.recipe);
+
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('recipeContent').style.display = 'block';
+      } catch (error) {
+        console.error('Error loading recipe:', error);
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('errorState').style.display = 'block';
+        document.getElementById('errorState').innerHTML = `
+          <h2>Error loading recipe</h2>
+          <p>${error.message}</p>
+          <a href="/" class="back-link" style="color: #c53030; margin-top: 1rem; display: inline-block;">← Back to all recipes</a>
+        `;
+      }
+    }
+
+    function displayRecipe(recipe) {
+      // Title and source
+      document.getElementById('recipeName').textContent = recipe.name;
+      document.title = `${recipe.name} | Recipe Collection`;
+
+      if (recipe.source) {
+        const sourceEl = document.getElementById('recipeSource');
+        if (recipe.source_link) {
+          sourceEl.innerHTML = `from <a href="${escapeHtml(recipe.source_link)}" target="_blank" rel="noopener">${escapeHtml(recipe.source)}</a>`;
+        } else {
+          sourceEl.textContent = `from ${recipe.source}`;
+        }
+      }
+
+      // Meta information
+      const meta = document.getElementById('recipeMeta');
+      const metaItems = [];
+
+      if (recipe.prep_time) metaItems.push({ label: 'Prep Time', value: recipe.prep_time });
+      if (recipe.cook_time) metaItems.push({ label: 'Cook Time', value: recipe.cook_time });
+      if (recipe.bake_time) metaItems.push({ label: 'Bake Time', value: recipe.bake_time });
+      if (recipe.total_time) metaItems.push({ label: 'Total Time', value: recipe.total_time });
+      if (recipe.rise_time) metaItems.push({ label: 'Rise Time', value: recipe.rise_time });
+      if (recipe.cooling_time) metaItems.push({ label: 'Cooling Time', value: recipe.cooling_time });
+      if (recipe.servings) metaItems.push({ label: 'Servings', value: recipe.servings });
+      if (recipe.yield) metaItems.push({ label: 'Yield', value: recipe.yield });
+      if (recipe.oven_temp) metaItems.push({ label: 'Oven Temp', value: recipe.oven_temp });
+      if (recipe.tin_size) metaItems.push({ label: 'Tin Size', value: recipe.tin_size });
+
+      meta.innerHTML = metaItems.map(item => `
+        <div class="meta-item">
+          <div class="meta-label">${item.label}</div>
+          <div class="meta-value">${escapeHtml(String(item.value))}</div>
+        </div>
+      `).join('');
+
+      // Dietary info
+      if (recipe.dietary_info && Array.isArray(recipe.dietary_info) && recipe.dietary_info.length > 0) {
+        document.getElementById('dietaryTags').innerHTML = recipe.dietary_info
+          .map(tag => `<span class="tag">${escapeHtml(tag)}</span>`)
+          .join('');
+      }
+
+      // Ingredients
+      if (recipe.ingredients) {
+        displayIngredients(recipe.ingredients);
+      }
+
+      // Method
+      if (recipe.method) {
+        displayMethod(recipe.method);
+      }
+
+      // Tips
+      if (recipe.tips && Array.isArray(recipe.tips) && recipe.tips.length > 0) {
+        document.getElementById('tipsSection').style.display = 'block';
+        document.getElementById('tipsList').innerHTML = recipe.tips
+          .map(tip => `<li>${escapeHtml(tip)}</li>`)
+          .join('');
+      }
+
+      // Equipment
+      if (recipe.equipment && Array.isArray(recipe.equipment) && recipe.equipment.length > 0) {
+        document.getElementById('equipmentSection').style.display = 'block';
+        document.getElementById('equipmentList').innerHTML = recipe.equipment
+          .map(item => `<li>${escapeHtml(item)}</li>`)
+          .join('');
+      }
+
+      // Notes
+      if (recipe.notes && Array.isArray(recipe.notes) && recipe.notes.length > 0) {
+        document.getElementById('notesSection').style.display = 'block';
+        document.getElementById('notesList').innerHTML = recipe.notes
+          .map(note => `<li>${escapeHtml(note)}</li>`)
+          .join('');
+      }
+
+      // Variations
+      if (recipe.variations && Array.isArray(recipe.variations) && recipe.variations.length > 0) {
+        document.getElementById('variationsSection').style.display = 'block';
+        document.getElementById('variationsList').innerHTML = recipe.variations
+          .map(variation => `<li>${escapeHtml(variation)}</li>`)
+          .join('');
+      }
+
+      // Make ahead
+      if (recipe.make_ahead) {
+        document.getElementById('notesSection').style.display = 'block';
+        const notesList = document.getElementById('notesList');
+        notesList.innerHTML += `<li><strong>Make Ahead:</strong> ${escapeHtml(recipe.make_ahead)}</li>`;
+      }
+
+      // Storage
+      if (recipe.storage && typeof recipe.storage === 'object') {
+        const storageKeys = Object.keys(recipe.storage).filter(key => recipe.storage[key]);
+        if (storageKeys.length > 0) {
+          document.getElementById('storageSection').style.display = 'block';
+          document.getElementById('storageGrid').innerHTML = storageKeys
+            .map(key => `
+              <div class="storage-item">
+                <div class="storage-title">${key.replace(/_/g, ' ')}</div>
+                <div>${escapeHtml(recipe.storage[key])}</div>
+              </div>
+            `).join('');
+        }
+      }
+    }
+
+    function displayIngredients(ingredients) {
+      document.getElementById('ingredientsSection').style.display = 'block';
+      const container = document.getElementById('ingredientsContent');
+
+      // Check if grouped ingredients (object) or simple list (array)
+      if (Array.isArray(ingredients)) {
+        container.innerHTML = `<ul class="ingredients-list">${
+          ingredients.map(ing => formatIngredient(ing)).join('')
+        }</ul>`;
+      } else if (typeof ingredients === 'object') {
+        // Grouped ingredients
+        container.innerHTML = Object.keys(ingredients).map(group => `
+          <h3>${escapeHtml(group.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))}</h3>
+          <ul class="ingredients-list">${
+            ingredients[group].map(ing => formatIngredient(ing)).join('')
+          }</ul>
+        `).join('');
+      }
+    }
+
+    function formatIngredient(ing) {
+      if (typeof ing === 'string') {
+        return `<li class="ingredient-item">${escapeHtml(ing)}</li>`;
+      }
+
+      const amount = ing.amount ? `<span class="ingredient-amount">${escapeHtml(ing.amount)}</span>` : '';
+      const notes = ing.notes ? `<span class="ingredient-notes">(${escapeHtml(ing.notes)})</span>` : '';
+
+      return `<li class="ingredient-item">${amount}${escapeHtml(ing.item)}${notes}</li>`;
+    }
+
+    function displayMethod(method) {
+      document.getElementById('methodSection').style.display = 'block';
+      const container = document.getElementById('methodContent');
+
+      // Check if grouped method (object) or simple list (array)
+      if (Array.isArray(method)) {
+        container.innerHTML = `<ol class="method-list">${
+          method.map(step => `<li>${escapeHtml(step)}</li>`).join('')
+        }</ol>`;
+      } else if (typeof method === 'object') {
+        // Grouped method
+        container.innerHTML = Object.keys(method).map(group => `
+          <h3>${escapeHtml(group.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))}</h3>
+          <ol class="method-list">${
+            method[group].map(step => `<li>${escapeHtml(step)}</li>`).join('')
+          }</ol>
+        `).join('');
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Load recipe on page load
+    loadRecipe();
+  </script>
+</body>
+</html>
