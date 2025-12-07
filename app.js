@@ -109,6 +109,26 @@ app.get('/auth-status', (req, res) => {
 
 // Recipe API Endpoints
 
+// Get list of hero images
+app.get('/api/hero-images', (req, res) => {
+  const imagesDir = path.join(__dirname, 'public', 'images');
+
+  fs.readdir(imagesDir, (err, files) => {
+    if (err) {
+      console.error('Error reading images directory:', err);
+      return res.json({ images: [] });
+    }
+
+    // Filter for image files only
+    const imageFiles = files.filter(file => {
+      const ext = path.extname(file).toLowerCase();
+      return ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext);
+    });
+
+    res.json({ images: imageFiles });
+  });
+});
+
 // Save a recipe to Supabase
 app.post('/api/recipes', requireAuth, async (req, res) => {
   if (!supabase) {
@@ -215,8 +235,25 @@ app.put('/api/recipes/:id', requireAuth, async (req, res) => {
 
   try {
     const recipeData = req.body;
+
+    // Define allowed fields in the database schema
+    const allowedFields = [
+      'name', 'source', 'source_link', 'prep_time', 'cook_time', 'total_time',
+      'rise_time', 'cooling_time', 'bake_time', 'servings', 'yield',
+      'oven_temp', 'tin_size', 'dietary_info', 'ingredients', 'method',
+      'tips', 'notes', 'storage', 'equipment', 'variations', 'make_ahead'
+    ];
+
+    // Filter recipe data to only include allowed fields
+    const cleanRecipeData = {};
+    for (const field of allowedFields) {
+      if (recipeData[field] !== undefined) {
+        cleanRecipeData[field] = recipeData[field];
+      }
+    }
+
     const recipeToUpdate = {
-      ...recipeData,
+      ...cleanRecipeData,
       updated_at: new Date().toISOString()
     };
 
