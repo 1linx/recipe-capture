@@ -53,6 +53,36 @@
       white-space: pre-wrap;
       display: none;
     }
+    #response-container {
+      margin-top: 30px;
+      display: none;
+    }
+    #text-response {
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background-color: #f0f8ff;
+      margin-bottom: 20px;
+      white-space: pre-wrap;
+    }
+    #json-response-container {
+      padding: 20px;
+      border: 1px solid #4CAF50;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+    }
+    #json-response-container pre {
+      margin: 0;
+      background-color: #2d2d2d;
+      color: #f8f8f2;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    #json-response-container code {
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
     #loading {
       display: none;
       margin-top: 15px;
@@ -119,7 +149,14 @@
     <div id="loading">Processing your request...</div>
   </form>
 
-    <div id="response"></div>
+    <div id="response-container">
+        <!-- This is for the conversational text from Gemini -->
+        <div id="text-response"></div>
+
+        <!-- This is where the formatted JSON will go -->
+        <div id="json-response-container"></div>
+    </div>
+
   </div>
 
   <script>
@@ -184,7 +221,7 @@
         document.getElementById('loginSection').style.display = 'block';
         document.getElementById('mainSection').style.display = 'none';
         document.getElementById('query').value = '';
-        document.getElementById('response').style.display = 'none';
+        document.getElementById('response-container').style.display = 'none';
       } catch (error) {
         console.error('Error logging out:', error);
       }
@@ -194,7 +231,9 @@
     const form = document.getElementById('queryForm');
     const submitBtn = document.getElementById('submitBtn');
     const loading = document.getElementById('loading');
-    const responseDiv = document.getElementById('response');
+    const responseContainer = document.getElementById('response-container');
+    const textResponseDiv = document.getElementById('text-response');
+    const jsonResponseDiv = document.getElementById('json-response-container');
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -204,8 +243,9 @@
       // Show loading state
       submitBtn.disabled = true;
       loading.style.display = 'block';
-      responseDiv.style.display = 'none';
-      responseDiv.className = '';
+      responseContainer.style.display = 'none';
+      textResponseDiv.innerHTML = '';
+      jsonResponseDiv.innerHTML = '';
 
       try {
         const response = await fetch('/query-ai', {
@@ -219,26 +259,42 @@
         const data = await response.json();
 
         if (response.ok) {
-          responseDiv.textContent = data.response;
-          responseDiv.style.display = 'block';
+          // Display the text response if present
+          if (data.response) {
+            textResponseDiv.textContent = data.response;
+          }
+
+          // Display the JSON response if present
+          if (data.recipeJson) {
+            const preTag = document.createElement('pre');
+            const codeTag = document.createElement('code');
+            codeTag.textContent = JSON.stringify(data.recipeJson, null, 2);
+            preTag.appendChild(codeTag);
+            jsonResponseDiv.appendChild(preTag);
+          }
+
+          responseContainer.style.display = 'block';
         } else if (response.status === 401) {
           // Session expired, show login
-          responseDiv.className = 'error';
-          responseDiv.textContent = 'Session expired. Please log in again.';
-          responseDiv.style.display = 'block';
+          textResponseDiv.className = 'error';
+          textResponseDiv.textContent = 'Session expired. Please log in again.';
+          responseContainer.style.display = 'block';
           setTimeout(() => {
             document.getElementById('loginSection').style.display = 'block';
             document.getElementById('mainSection').style.display = 'none';
           }, 2000);
         } else {
-          responseDiv.className = 'error';
-          responseDiv.textContent = 'Error: ' + (data.error || 'Something went wrong');
-          responseDiv.style.display = 'block';
+          textResponseDiv.className = 'error';
+          textResponseDiv.textContent = 'Error: ' + (data.error || 'Something went wrong');
+          if (data.details) {
+            textResponseDiv.textContent += '\nDetails: ' + data.details;
+          }
+          responseContainer.style.display = 'block';
         }
       } catch (error) {
-        responseDiv.className = 'error';
-        responseDiv.textContent = 'Error: ' + error.message;
-        responseDiv.style.display = 'block';
+        textResponseDiv.className = 'error';
+        textResponseDiv.textContent = 'Error: ' + error.message;
+        responseContainer.style.display = 'block';
       } finally {
         // Hide loading state
         submitBtn.disabled = false;

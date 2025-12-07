@@ -4,6 +4,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai'); // Gemini AI li
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
+const fetch = require('node-fetch'); // Import node-fetch
 const session = require('express-session');
 
 const app = express();
@@ -82,21 +83,65 @@ app.get('/auth-status', (req, res) => {
 
 app.post('/query-ai', requireAuth, async (req, res) => {
   const userQuery = req.body.query;
+  let contentToProcess = userQuery; // Default to user's direct query
+
+  // Check if the userQuery is a URL
+  const urlRegex = /^(https?:\/\/[^\s$.?#].[^\s]*)$/i;
+  if (urlRegex.test(userQuery)) {
+    console.log(`Attempting to fetch content from URL: ${userQuery}`);
+    try {
+      const response = await fetch(userQuery);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch URL: ${response.statusText} (${response.status})`);
+      }
+      contentToProcess = await response.text();
+      console.log('Successfully fetched content from URL.');
+    } catch (fetchError) {
+      console.error('Error fetching URL content:', fetchError);
+      return res.status(500).json({
+        error: 'Failed to retrieve content from the provided URL. Please ensure it is a valid and accessible URL.',
+        details: fetchError.message
+      });
+    }
+  }
 
   if (!userQuery) {
     return res.status(400).json({ error: 'Query is required' });
   }
 
   try {
-    const prompt = `${instructions}\n\nUser Query: ${userQuery}`;
-    console.log('Sending request to Gemini...');
+    const prompt = `${instructions}\n\nHere is the recipe text to analyze:\n\n${contentToProcess}`;
+    console.log('Sending request to Gemini with processed content...');
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text(); // Extract text from Gemini's response
+    // Use streaming to handle potentially large responses and avoid network errors
+    const result = await model.generateContentStream(prompt);
+
+    let rawText = '';
+    for await (const chunk of result.stream) {
+      rawText += chunk.text();
+    }
 
     console.log('Response received from Gemini');
-    res.json({ response: text });
+    
+    // Extract JSON from the markdown code block and the remaining text from Gemini's response
+    const jsonRegex = /```json\s*([\s\S]*?)\s*```/;
+    const jsonMatch = rawText.match(jsonRegex);
+
+    let jsonResponse = null;
+    let textResponse = rawText;
+
+    if (jsonMatch && jsonMatch[1]) {
+      try {
+        jsonResponse = JSON.parse(jsonMatch[1]);
+        textResponse = rawText.replace(jsonRegex, '').trim();
+      } catch (parseError) {
+        console.error('Error parsing JSON from Gemini response:', parseError);
+        // If JSON parsing fails, just return the raw text
+        textResponse = rawText;
+      }
+    }
+
+    res.json({ response: textResponse, recipeJson: jsonResponse });
   } catch (error) {
     // Log the full error to the console for debugging
     console.error('Detailed error querying Gemini:', error);
