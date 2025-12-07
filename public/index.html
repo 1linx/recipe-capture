@@ -35,7 +35,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      opacity: 0.4;
+      /* opacity and object-position will be set via JavaScript */
     }
 
     header {
@@ -131,6 +131,8 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
       transition: transform 0.3s, box-shadow 0.3s;
       cursor: pointer;
+      display: grid;
+      grid-template-rows: auto 1fr;
     }
 
     .recipe-card:hover {
@@ -141,7 +143,6 @@
     .recipe-card-header {
       padding: 1.5rem;
       background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-      min-height: 120px;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -286,29 +287,42 @@
 
     // Load and set hero image
     async function loadHeroImage() {
-      // Check if we have a stored image selection
-      let storedImage = localStorage.getItem('heroImage');
+      try {
+        // Fetch hero configuration
+        const configResponse = await fetch('/hero-config.json');
+        const config = await configResponse.json();
 
-      if (storedImage) {
-        document.getElementById('heroImage').src = storedImage;
-      } else {
-        // Fetch list of images from the server
-        try {
-          const response = await fetch('/api/hero-images');
-          const data = await response.json();
-
-          if (data.images && data.images.length > 0) {
-            // Select a random image
-            const randomImage = data.images[Math.floor(Math.random() * data.images.length)];
-            const imagePath = `/images/${randomImage}`;
-
-            // Store it for next time
-            localStorage.setItem('heroImage', imagePath);
-            document.getElementById('heroImage').src = imagePath;
-          }
-        } catch (error) {
-          console.error('Error loading hero image:', error);
+        if (!config.images || config.images.length === 0) {
+          console.error('No hero images configured');
+          return;
         }
+
+        // Check if we have a stored image selection
+        let storedConfigIndex = localStorage.getItem('heroImageIndex');
+        let selectedConfig;
+
+        if (storedConfigIndex !== null && config.images[storedConfigIndex]) {
+          // Use stored image
+          selectedConfig = config.images[storedConfigIndex];
+        } else {
+          // Select a random image
+          const randomIndex = Math.floor(Math.random() * config.images.length);
+          selectedConfig = config.images[randomIndex];
+          // Store the index for next time
+          localStorage.setItem('heroImageIndex', randomIndex);
+        }
+
+        // Apply the configuration
+        const heroElement = document.querySelector('.hero');
+        const heroImage = document.getElementById('heroImage');
+
+        heroImage.src = `/images/${selectedConfig.filename}`;
+        heroImage.style.opacity = selectedConfig.opacity || 0.4;
+        heroImage.style.objectPosition = selectedConfig.objectPosition || 'center';
+        heroElement.style.backgroundColor = selectedConfig.backgroundColor || '#667eea';
+
+      } catch (error) {
+        console.error('Error loading hero image:', error);
       }
     }
 
@@ -345,6 +359,44 @@
         const card = createRecipeCard(recipe);
         grid.appendChild(card);
       });
+
+      // Equalize header heights after cards are rendered
+      requestAnimationFrame(() => {
+        equalizeHeaderHeights();
+      });
+    }
+
+    function equalizeHeaderHeights() {
+      const grid = document.getElementById('recipeGrid');
+      const cards = Array.from(grid.querySelectorAll('.recipe-card'));
+
+      if (cards.length === 0) return;
+
+      // Reset all header heights first
+      cards.forEach(card => {
+        const header = card.querySelector('.recipe-card-header');
+        if (header) header.style.height = 'auto';
+      });
+
+      // Get computed style to determine columns per row
+      const gridStyle = window.getComputedStyle(grid);
+      const gridCols = gridStyle.gridTemplateColumns.split(' ').length;
+
+      // Process cards in rows
+      for (let i = 0; i < cards.length; i += gridCols) {
+        const rowCards = cards.slice(i, i + gridCols);
+        const headers = rowCards.map(card => card.querySelector('.recipe-card-header')).filter(h => h);
+
+        if (headers.length === 0) continue;
+
+        // Find the tallest header in this row
+        const maxHeight = Math.max(...headers.map(header => header.offsetHeight));
+
+        // Set all headers in this row to the same height
+        headers.forEach(header => {
+          header.style.height = `${maxHeight}px`;
+        });
+      }
     }
 
     function createRecipeCard(recipe) {
@@ -401,6 +453,15 @@
       });
 
       displayRecipes(filtered);
+    });
+
+    // Recalculate header heights on window resize
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        equalizeHeaderHeights();
+      }, 150);
     });
 
     // Load recipes and hero image on page load

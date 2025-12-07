@@ -109,26 +109,6 @@ app.get('/auth-status', (req, res) => {
 
 // Recipe API Endpoints
 
-// Get list of hero images
-app.get('/api/hero-images', (req, res) => {
-  const imagesDir = path.join(__dirname, 'public', 'images');
-
-  fs.readdir(imagesDir, (err, files) => {
-    if (err) {
-      console.error('Error reading images directory:', err);
-      return res.json({ images: [] });
-    }
-
-    // Filter for image files only
-    const imageFiles = files.filter(file => {
-      const ext = path.extname(file).toLowerCase();
-      return ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext);
-    });
-
-    res.json({ images: imageFiles });
-  });
-});
-
 // Save a recipe to Supabase
 app.post('/api/recipes', requireAuth, async (req, res) => {
   if (!supabase) {
