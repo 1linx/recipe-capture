@@ -9,7 +9,7 @@ const session = require('express-session');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
-const port = 3000;
+const port = 5050;
 
 // Supabase Configuration
 const supabaseUrl = process.env.SUPABASE_URL;
