@@ -252,6 +252,38 @@
       margin-top: 4rem;
     }
 
+    .cook-mode-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: rgba(255,255,255,0.15);
+      color: white;
+      border: 2px solid rgba(255,255,255,0.5);
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 1rem;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .cook-mode-btn:hover {
+      background: rgba(255,255,255,0.25);
+      border-color: white;
+    }
+
+    .cook-mode-btn.active {
+      background: rgba(255,255,255,0.9);
+      color: #764ba2;
+      border-color: white;
+    }
+
+    .cook-mode-btn.unsupported {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     @media print {
       header, footer, .back-link {
         display: none;
@@ -270,6 +302,9 @@
       <a href="/" class="back-link">← Back to all recipes</a>
       <h1 id="recipeName">Loading...</h1>
       <p id="recipeSource" class="recipe-source"></p>
+      <button id="cookModeBtn" class="cook-mode-btn" onclick="toggleCookMode()">
+        <span id="cookModeIcon">☀️</span> Cook Mode
+      </button>
     </div>
   </header>
 
@@ -514,6 +549,53 @@
       div.textContent = text;
       return div.innerHTML;
     }
+
+    // Cook Mode (Screen Wake Lock)
+    let wakeLock = null;
+
+    async function toggleCookMode() {
+      const btn = document.getElementById('cookModeBtn');
+      const icon = document.getElementById('cookModeIcon');
+
+      if (!('wakeLock' in navigator)) {
+        btn.classList.add('unsupported');
+        btn.title = 'Cook Mode is not supported in this browser';
+        return;
+      }
+
+      if (wakeLock) {
+        await wakeLock.release();
+        wakeLock = null;
+        btn.classList.remove('active');
+        icon.textContent = '☀️';
+      } else {
+        try {
+          wakeLock = await navigator.wakeLock.request('screen');
+          btn.classList.add('active');
+          icon.textContent = '🔆';
+          wakeLock.addEventListener('release', () => {
+            wakeLock = null;
+            btn.classList.remove('active');
+            icon.textContent = '☀️';
+          });
+        } catch (err) {
+          console.error('Wake lock request failed:', err);
+        }
+      }
+    }
+
+    // Re-acquire wake lock if page becomes visible again (e.g. after tab switch)
+    document.addEventListener('visibilitychange', async () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        try {
+          wakeLock = await navigator.wakeLock.request('screen');
+          document.getElementById('cookModeBtn').classList.add('active');
+          document.getElementById('cookModeIcon').textContent = '🔆';
+        } catch (err) {
+          console.error('Wake lock re-acquire failed:', err);
+        }
+      }
+    });
 
     // Load recipe on page load
     loadRecipe();
