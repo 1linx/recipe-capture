@@ -264,7 +264,6 @@
       font-size: 0.9rem;
       font-weight: 600;
       cursor: pointer;
-      margin-top: 1rem;
       transition: background 0.2s, border-color 0.2s;
     }
 
@@ -282,6 +281,53 @@
     .cook-mode-btn.unsupported {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+
+    .cook-mode-btn {
+      margin-top: 0;
+    }
+
+    .multiplier-btns {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .multiplier-label {
+      font-size: 0.85rem;
+      opacity: 0.85;
+      margin-right: 0.25rem;
+    }
+
+    .multiplier-btn {
+      padding: 0.4rem 0.75rem;
+      background: rgba(255,255,255,0.15);
+      color: white;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .multiplier-btn:hover {
+      background: rgba(255,255,255,0.25);
+      border-color: white;
+    }
+
+    .multiplier-btn.active {
+      background: rgba(255,255,255,0.9);
+      color: #764ba2;
+      border-color: white;
     }
 
     @media print {
@@ -302,9 +348,18 @@
       <a href="/" class="back-link">← Back to all recipes</a>
       <h1 id="recipeName">Loading...</h1>
       <p id="recipeSource" class="recipe-source"></p>
-      <button id="cookModeBtn" class="cook-mode-btn" onclick="toggleCookMode()">
-        <span id="cookModeIcon">☀️</span> Cook Mode
-      </button>
+      <div class="header-actions">
+        <button id="cookModeBtn" class="cook-mode-btn" onclick="toggleCookMode()">
+          <span id="cookModeIcon">☀️</span> Cook Mode
+        </button>
+        <div class="multiplier-btns">
+          <span class="multiplier-label">Scale:</span>
+          <button class="multiplier-btn active" data-mult="1" onclick="setMultiplier(1)">1×</button>
+          <button class="multiplier-btn" data-mult="2" onclick="setMultiplier(2)">2×</button>
+          <button class="multiplier-btn" data-mult="3" onclick="setMultiplier(3)">3×</button>
+          <button class="multiplier-btn" data-mult="4" onclick="setMultiplier(4)">4×</button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -360,6 +415,90 @@
   </footer>
 
   <script>
+    let originalRecipe = null;
+    let currentMultiplier = 1;
+
+    const UNICODE_FRACS = {
+      '½': 0.5, '¼': 0.25, '¾': 0.75,
+      '⅓': 1/3, '⅔': 2/3,
+      '⅛': 0.125, '⅜': 0.375, '⅝': 0.625, '⅞': 0.875
+    };
+
+    function parseNum(s) {
+      s = s.trim();
+      if (!s) return null;
+      if (UNICODE_FRACS[s] !== undefined) return UNICODE_FRACS[s];
+      // Integer + unicode fraction: "1½" or "1 ½"
+      const m1 = s.match(/^(\d+)\s*([½¼¾⅓⅔⅛⅜⅝⅞])$/u);
+      if (m1) return parseInt(m1[1]) + UNICODE_FRACS[m1[2]];
+      // Integer + regular fraction: "1 1/2"
+      const m2 = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+      if (m2) return parseInt(m2[1]) + parseInt(m2[2]) / parseInt(m2[3]);
+      // Regular fraction: "1/2"
+      const m3 = s.match(/^(\d+)\/(\d+)$/);
+      if (m3) return parseInt(m3[1]) / parseInt(m3[2]);
+      const n = parseFloat(s);
+      return isNaN(n) ? null : n;
+    }
+
+    function formatNum(v) {
+      if (v <= 0) return '0';
+      const SNAP = [
+        [0.125, '⅛'], [0.25, '¼'], [1/3, '⅓'], [0.375, '⅜'],
+        [0.5, '½'], [0.625, '⅝'], [2/3, '⅔'], [0.75, '¾'], [0.875, '⅞']
+      ];
+      const EPS = 0.04;
+      const whole = Math.floor(v);
+      const rem = v - whole;
+      if (rem < EPS) return String(whole);
+      if (1 - rem < EPS) return String(whole + 1);
+      for (const [frac, sym] of SNAP) {
+        if (Math.abs(rem - frac) < EPS) return whole > 0 ? `${whole}${sym}` : sym;
+      }
+      return String(Math.round(v * 10) / 10);
+    }
+
+    // Scale a leading numeric token in an amount string (e.g. "280g", "½ tsp", "1 1/2 cups")
+    function scaleAmount(amountStr, factor) {
+      if (!amountStr || factor === 1) return amountStr;
+      // Range like "2-3" — scale both ends unless it's a time range
+      const rangeMatch = amountStr.match(/^(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)(.*)/);
+      if (rangeMatch && !/\b(minutes?|hours?|mins?|hrs?|seconds?)\b/i.test(rangeMatch[3])) {
+        return `${formatNum(parseFloat(rangeMatch[1]) * factor)}-${formatNum(parseFloat(rangeMatch[2]) * factor)}${rangeMatch[3]}`;
+      }
+      // Extract leading numeric token (longest match first)
+      const numMatch = amountStr.match(/^(\d+\s*[½¼¾⅓⅔⅛⅜⅝⅞]|\d+\s+\d+\/\d+|\d+\/\d+|[½¼¾⅓⅔⅛⅜⅝⅞]|\d+(?:\.\d+)?)(.*)/u);
+      if (!numMatch) return amountStr;
+      const value = parseNum(numMatch[1]);
+      if (!value) return amountStr;
+      return formatNum(value * factor) + numMatch[2];
+    }
+
+    // Scale number+cooking-unit quantities in method text (e.g. "250g", "½ teaspoon")
+    // Only matches explicit cooking weight/volume units — leaves temperatures, times, dimensions alone
+    function scaleMethodText(text, factor) {
+      if (factor === 1) return text;
+      const NUM = '(?:\\d+\\s*[½¼¾⅓⅔⅛⅜⅝⅞]|\\d+\\s+\\d+\\/\\d+|\\d+\\/\\d+|[½¼¾⅓⅔⅛⅜⅝⅞]|\\d+(?:\\.\\d+)?)';
+      const UNITS = '(?:kg|ml|lbs?|teaspoons?|tablespoons?|fl\\s+oz|litres?|liters?|pints?|handfuls?|cups?|tsps?|tbsps?|oz|g|l)';
+      const pattern = new RegExp(`(${NUM})(\\s*)(${UNITS})\\b`, 'giu');
+      return text.replace(pattern, (match, num, space, unit) => {
+        const value = parseNum(num.trim());
+        if (!value) return match;
+        return formatNum(value * factor) + space + unit;
+      });
+    }
+
+    function setMultiplier(n) {
+      currentMultiplier = n;
+      document.querySelectorAll('.multiplier-btn').forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.dataset.mult) === n);
+      });
+      if (originalRecipe) {
+        if (originalRecipe.ingredients) displayIngredients(originalRecipe.ingredients);
+        if (originalRecipe.method) displayMethod(originalRecipe.method);
+      }
+    }
+
     async function loadRecipe() {
       const recipeId = window.location.pathname.split('/').pop();
 
@@ -386,6 +525,7 @@
     }
 
     function displayRecipe(recipe) {
+      originalRecipe = recipe;
       // Title and source
       document.getElementById('recipeName').textContent = recipe.name;
       document.title = `${recipe.name} | Recipe Collection`;
@@ -515,10 +655,11 @@
 
     function formatIngredient(ing) {
       if (typeof ing === 'string') {
-        return `<li class="ingredient-item">${escapeHtml(ing)}</li>`;
+        return `<li class="ingredient-item">${escapeHtml(scaleAmount(ing, currentMultiplier))}</li>`;
       }
 
-      const amount = ing.amount ? `<span class="ingredient-amount">${escapeHtml(ing.amount)}</span>` : '';
+      const scaledAmount = ing.amount ? scaleAmount(ing.amount, currentMultiplier) : '';
+      const amount = scaledAmount ? `<span class="ingredient-amount">${escapeHtml(scaledAmount)}</span>` : '';
       const notes = ing.notes ? `<span class="ingredient-notes">(${escapeHtml(ing.notes)})</span>` : '';
 
       return `<li class="ingredient-item">${amount}${escapeHtml(ing.item)}${notes}</li>`;
@@ -531,14 +672,14 @@
       // Check if grouped method (object) or simple list (array)
       if (Array.isArray(method)) {
         container.innerHTML = `<ol class="method-list">${
-          method.map(step => `<li>${escapeHtml(step)}</li>`).join('')
+          method.map(step => `<li>${escapeHtml(scaleMethodText(step, currentMultiplier))}</li>`).join('')
         }</ol>`;
       } else if (typeof method === 'object') {
         // Grouped method
         container.innerHTML = Object.keys(method).map(group => `
           <h3>${escapeHtml(group.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))}</h3>
           <ol class="method-list">${
-            method[group].map(step => `<li>${escapeHtml(step)}</li>`).join('')
+            method[group].map(step => `<li>${escapeHtml(scaleMethodText(step, currentMultiplier))}</li>`).join('')
           }</ol>
         `).join('');
       }
