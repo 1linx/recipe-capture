@@ -107,6 +107,20 @@ app.get('/auth-status', (req, res) => {
   res.json({ authenticated: !!req.session.authenticated });
 });
 
+// Health check endpoint — keeps Supabase from going idle
+app.get('/health', async (req, res) => {
+  if (!supabase) {
+    return res.json({ status: 'ok', db: 'not configured' });
+  }
+  try {
+    const { error } = await supabase.from('recipes').select('id').limit(1);
+    if (error) throw error;
+    res.json({ status: 'ok', db: 'connected' });
+  } catch (error) {
+    res.status(500).json({ status: 'error', db: error.message });
+  }
+});
+
 // Recipe API Endpoints
 
 // Save a recipe to Supabase
