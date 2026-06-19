@@ -24,6 +24,16 @@ if (supabaseUrl && supabaseKey && supabaseUrl !== 'your_supabase_project_url') {
   console.log('Supabase not configured - recipe saving will be disabled');
 }
 
+// Block sensitive paths before any other middleware
+app.use((req, res, next) => {
+  const path = req.path.toLowerCase();
+  // Block dotfiles (.env, .git, .htaccess, etc.) and server-side source files
+  if (/^\/\./.test(req.path) || /\/(node_modules|app\.js|package(-lock)?\.json|recipe_extraction_instructions\.md|supabase_setup\.md)(\/|$)/i.test(req.path)) {
+    return res.status(403).end();
+  }
+  next();
+});
+
 // Middleware
 app.use(express.static('public')); // Serve static files (HTML, CSS, JS)
 app.use(bodyParser.urlencoded({ extended: true })); // Parse URL-encoded bodies
