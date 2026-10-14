@@ -6,29 +6,18 @@ const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch'); // Import node-fetch
 const session = require('express-session');
-const { createClient } = require('@supabase/supabase-js');
+const recipesDb = require('./db'); // SQLite recipe storage
 
 const app = express();
 const port = 5050;
 
-// Supabase Configuration
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
-let supabase = null;
-
-// Only initialize Supabase if credentials are provided
-if (supabaseUrl && supabaseKey && supabaseUrl !== 'your_supabase_project_url') {
-  supabase = createClient(supabaseUrl, supabaseKey);
-  console.log('Supabase initialized successfully');
-} else {
-  console.log('Supabase not configured - recipe saving will be disabled');
-}
+console.log(`SQLite database: ${recipesDb.dbPath}`);
 
 // Block sensitive paths before any other middleware
 app.use((req, res, next) => {
   const path = req.path.toLowerCase();
-  // Block dotfiles (.env, .git, .htaccess, etc.) and server-side source files
-  if (/^\/\./.test(req.path) || /\/(node_modules|app\.js|package(-lock)?\.json|recipe_extraction_instructions\.md|supabase_setup\.md)(\/|$)/i.test(req.path)) {
+  // Block dotfiles (.env, .git, .htaccess, etc.), server-side source files and the database
+  if (/^\/\./.test(req.path) || /\/(node_modules|data|scripts|app\.js|db\.js|package(-lock)?\.json|recipe_extraction_instructions\.md|database\.md)(\/|$)/i.test(req.path)) {
     return res.status(403).end();
   }
   next();
@@ -117,62 +106,18 @@ app.get('/auth-status', (req, res) => {
   res.json({ authenticated: !!req.session.authenticated });
 });
 
-// Health check endpoint — keeps Supabase from going idle
-app.get('/health', async (req, res) => {
-  if (!supabase) {
-    return res.json({ status: 'ok', db: 'not configured' });
-  }
-  try {
-    const { error } = await supabase.from('recipes').select('id').limit(1);
-    if (error) throw error;
-    res.json({ status: 'ok', db: 'connected' });
-  } catch (error) {
-    res.status(500).json({ status: 'error', db: error.message });
-  }
-});
-
 // Recipe API Endpoints
 
-// Save a recipe to Supabase
-app.post('/api/recipes', requireAuth, async (req, res) => {
-  if (!supabase) {
-    return res.status(503).json({ error: 'Database not configured' });
-  }
+function parseId(value) {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
 
+// Save a recipe
+app.post('/api/recipes', requireAuth, (req, res) => {
   try {
-    const recipeData = req.body;
-
-    // Define allowed fields in the database schema
-    const allowedFields = [
-      'name', 'source', 'source_link', 'prep_time', 'cook_time', 'total_time',
-      'rise_time', 'cooling_time', 'bake_time', 'servings', 'yield',
-      'oven_temp', 'tin_size', 'dietary_info', 'ingredients', 'method',
-      'tips', 'notes', 'storage', 'equipment', 'variations', 'make_ahead'
-    ];
-
-    // Filter recipe data to only include allowed fields
-    const cleanRecipeData = {};
-    for (const field of allowedFields) {
-      if (recipeData[field] !== undefined) {
-        cleanRecipeData[field] = recipeData[field];
-      }
-    }
-
-    // Add metadata
-    const recipeToSave = {
-      ...cleanRecipeData,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-
-    const { data, error } = await supabase
-      .from('recipes')
-      .insert([recipeToSave])
-      .select();
-
-    if (error) throw error;
-
-    res.json({ success: true, recipe: data[0] });
+    const recipe = recipesDb.createRecipe(req.body || {});
+    res.json({ success: true, recipe });
   } catch (error) {
     console.error('Error saving recipe:', error);
     res.status(500).json({
@@ -183,20 +128,9 @@ app.post('/api/recipes', requireAuth, async (req, res) => {
 });
 
 // Get all recipes (PUBLIC - no auth required)
-app.get('/api/recipes', async (req, res) => {
-  if (!supabase) {
-    return res.status(503).json({ error: 'Database not configured' });
-  }
-
+app.get('/api/recipes', (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('recipes')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    res.json({ recipes: data });
+    res.json({ recipes: recipesDb.listRecipes() });
   } catch (error) {
     console.error('Error fetching recipes:', error);
     res.status(500).json({
@@ -207,21 +141,14 @@ app.get('/api/recipes', async (req, res) => {
 });
 
 // Get a single recipe by ID (PUBLIC - no auth required)
-app.get('/api/recipes/:id', async (req, res) => {
-  if (!supabase) {
-    return res.status(503).json({ error: 'Database not configured' });
-  }
+app.get('/api/recipes/:id', (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(404).json({ error: 'Recipe not found' });
 
   try {
-    const { data, error } = await supabase
-      .from('recipes')
-      .select('*')
-      .eq('id', req.params.id)
-      .single();
-
-    if (error) throw error;
-
-    res.json({ recipe: data });
+    const recipe = recipesDb.getRecipe(id);
+    if (!recipe) return res.status(404).json({ error: 'Recipe not found' });
+    res.json({ recipe });
   } catch (error) {
     console.error('Error fetching recipe:', error);
     res.status(500).json({
@@ -232,44 +159,14 @@ app.get('/api/recipes/:id', async (req, res) => {
 });
 
 // Update a recipe
-app.put('/api/recipes/:id', requireAuth, async (req, res) => {
-  if (!supabase) {
-    return res.status(503).json({ error: 'Database not configured' });
-  }
+app.put('/api/recipes/:id', requireAuth, (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(404).json({ error: 'Recipe not found' });
 
   try {
-    const recipeData = req.body;
-
-    // Define allowed fields in the database schema
-    const allowedFields = [
-      'name', 'source', 'source_link', 'prep_time', 'cook_time', 'total_time',
-      'rise_time', 'cooling_time', 'bake_time', 'servings', 'yield',
-      'oven_temp', 'tin_size', 'dietary_info', 'ingredients', 'method',
-      'tips', 'notes', 'storage', 'equipment', 'variations', 'make_ahead'
-    ];
-
-    // Filter recipe data to only include allowed fields
-    const cleanRecipeData = {};
-    for (const field of allowedFields) {
-      if (recipeData[field] !== undefined) {
-        cleanRecipeData[field] = recipeData[field];
-      }
-    }
-
-    const recipeToUpdate = {
-      ...cleanRecipeData,
-      updated_at: new Date().toISOString()
-    };
-
-    const { data, error } = await supabase
-      .from('recipes')
-      .update(recipeToUpdate)
-      .eq('id', req.params.id)
-      .select();
-
-    if (error) throw error;
-
-    res.json({ success: true, recipe: data[0] });
+    const recipe = recipesDb.updateRecipe(id, req.body || {});
+    if (!recipe) return res.status(404).json({ error: 'Recipe not found' });
+    res.json({ success: true, recipe });
   } catch (error) {
     console.error('Error updating recipe:', error);
     res.status(500).json({
@@ -280,19 +177,13 @@ app.put('/api/recipes/:id', requireAuth, async (req, res) => {
 });
 
 // Delete a recipe
-app.delete('/api/recipes/:id', requireAuth, async (req, res) => {
-  if (!supabase) {
-    return res.status(503).json({ error: 'Database not configured' });
-  }
+app.delete('/api/recipes/:id', requireAuth, (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return res.status(404).json({ error: 'Recipe not found' });
 
   try {
-    const { error } = await supabase
-      .from('recipes')
-      .delete()
-      .eq('id', req.params.id);
-
-    if (error) throw error;
-
+    const deleted = recipesDb.deleteRecipe(id);
+    if (!deleted) return res.status(404).json({ error: 'Recipe not found' });
     res.json({ success: true, message: 'Recipe deleted' });
   } catch (error) {
     console.error('Error deleting recipe:', error);

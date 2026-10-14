@@ -19,4 +19,7 @@ Thumbs.db
 #Claude
 .claude/
 CLAUDE.md
-SUPABASE_SETUP.md
+DATABASE.md
+# SQLite database (recipes live here, not in git)
+data/*
+!data/.gitkeep
