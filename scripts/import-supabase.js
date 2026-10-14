@@ -33,9 +33,9 @@ if (!file) {
 const replace = flags.has('--replace');
 const dryRun = flags.has('--dry-run');
 
-let db, dbPath, ALLOWED_FIELDS, serialize, COLUMNS;
+let db, dbPath, ALLOWED_FIELDS, JSON_FIELDS, serialize, COLUMNS;
 function loadDb() {
-  ({ db, dbPath, ALLOWED_FIELDS, serialize } = require(path.join(__dirname, '..', 'db.js')));
+  ({ db, dbPath, ALLOWED_FIELDS, JSON_FIELDS, serialize } = require(path.join(__dirname, '..', 'db.js')));
   COLUMNS = ['id', ...ALLOWED_FIELDS, 'created_at', 'updated_at'];
 }
 
@@ -235,6 +235,21 @@ function detectAndParse(filePath, text) {
 
 // ---------- Normalisation ----------
 
+// Supabase's SQL export doubles backslashes inside string literals, which turns a JSON
+// escape like \" into \\" and breaks parsing. If a JSON field fails to parse, retry with
+// doubled backslashes collapsed; warn if it still cannot be parsed.
+const jsonWarnings = [];
+function repairJson(col, value) {
+  if (typeof value !== 'string' || !JSON_FIELDS.includes(col)) return value;
+  try { JSON.parse(value); return value; } catch { /* fall through */ }
+  if (value.includes('\\\\')) {
+    const collapsed = value.replace(/\\\\/g, '\\');
+    try { JSON.parse(collapsed); return collapsed; } catch { /* fall through */ }
+  }
+  jsonWarnings.push(`${col} is not valid JSON and will be stored as a plain string`);
+  return value;
+}
+
 // Postgres timestamptz like "2025-12-07 10:22:33.123456+00" -> ISO 8601 in UTC.
 function normaliseTimestamp(value) {
   if (value === null || value === undefined || value === '') return null;
@@ -260,7 +275,7 @@ function normaliseRow(raw) {
     } else if (col === 'created_at' || col === 'updated_at') {
       row[col] = normaliseTimestamp(v);
     } else {
-      row[col] = serialize(col, v);
+      row[col] = serialize(col, repairJson(col, v));
     }
   }
   const now = new Date().toISOString();
@@ -294,7 +309,9 @@ const rows = [];
 const problems = [];
 rawRows.forEach((raw, idx) => {
   try {
+    jsonWarnings.length = 0;
     const row = normaliseRow(raw);
+    jsonWarnings.forEach(w => console.warn(`Warning: row ${idx + 1} (id ${row.id ?? 'new'}): ${w}`));
     if (!row.name) throw new Error('missing name');
     if (!row.ingredients) throw new Error('missing ingredients');
     if (!row.method) throw new Error('missing method');
